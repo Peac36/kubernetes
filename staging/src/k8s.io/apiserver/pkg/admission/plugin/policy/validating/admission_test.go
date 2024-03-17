@@ -1540,6 +1540,7 @@ func TestParamRef(t *testing.T) {
 // and namespace-scoped request kinds, and that the failure action is correctly
 // applied.
 func testParamRefCase(t *testing.T, paramIsClusterScoped, nameIsSet, namespaceIsSet, selectorIsSet, denyNotFound bool) {
+	t.Parallel()
 	// Create a cluster scoped and a namespace scoped CRD
 	policy := *denyPolicy
 	binding := *denyBinding
