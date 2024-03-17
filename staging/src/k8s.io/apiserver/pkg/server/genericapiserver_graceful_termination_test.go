@@ -633,7 +633,7 @@ func TestPreShutdownHooks(t *testing.T) {
 						err = fmt.Errorf("did not get status code 200 - %#v", r.response)
 						break
 					}
-					time.Sleep(time.Second)
+					time.Sleep(1 * time.Second)
 				}
 				preShutdownHookErrCh <- err
 				return nil

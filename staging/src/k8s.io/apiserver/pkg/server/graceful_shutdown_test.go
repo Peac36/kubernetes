@@ -37,6 +37,10 @@ var (
 	// after which the test shuts down the HTTP server
 	startServerShutdown = make(chan struct{})
 
+	// startReleasingConnections is used to release all http connection once the HTTP server shutdown is started
+	//
+	startReleasingConnections = make(chan struct{})
+
 	// handlerLock used in the backendHTTPHandler to count the number of requests and signal the test that the termination can start
 	handlerLock = sync.Mutex{}
 )
@@ -94,7 +98,7 @@ W+S7SneWTL09leh5ATNhog6s
 // TestGracefulShutdownForActiveHTTP2Streams checks if graceful shut down of HTTP2 server works.
 // It expects that all active connections will be finished (without any errors) before the server exits.
 //
-// The test sends 25 requests to the target server in parallel. Each request is held by the target server for 60s.
+// The test sends 25 requests to the target server in parallel. Each request is held by the target server for 5s.
 // As soon as the target server receives the last request the test calls backendServer.Config.Shutdown which gracefully shuts down the server without interrupting any active connections.
 //
 // See more at: https://github.com/golang/go/issues/39776
@@ -155,10 +159,14 @@ func TestGracefulShutdownForActiveHTTP2Streams(t *testing.T) {
 		}
 	}
 
+	go func() {
+		<-startServerShutdown // signal from the backend after receiving all (25) requests
+		close(startReleasingConnections)
+	}()
+
 	// this function starts the graceful shutdown
 	go func() {
 		<-startServerShutdown // signal from the backend after receiving all (25) requests
-
 		backendServer.Config.Shutdown(context.Background())
 	}()
 
@@ -187,7 +195,8 @@ func (b *backendHTTPHandler) ServeHTTP(w http.ResponseWriter, _ *http.Request) {
 	}
 	handlerLock.Unlock()
 
-	time.Sleep(60 * time.Second)
+	<-startReleasingConnections
+	time.Sleep(5 * time.Second)
 
 	w.Write([]byte("hello from the backend"))
 	w.WriteHeader(http.StatusOK)
